@@ -104,15 +104,20 @@ class Tasks:
             # Return empty list (no tasks)
             return []
 
-    def list(self, filter_lst = False):
+    def list(self, filter_lst = None):
         """This method prints all uncompleted tasks to the console"""
         print('ID   Age  Due Date   Priority   Task')
         print('--   ---  --------   --------   ----')
 
+        # If filter list is None, essentially applying no filter
+        if filter_lst == None:
+            # List comprehension to get list of ids
+            filter_lst = [task.unique_id for task in self.tasks]
+
         # Loop through each task and print to console
         for task in self.tasks:
             # Only print uncompleted tasks
-            if task.completed == False:
+            if (task.completed == False) and (task.unique_id in filter_lst):
                 id = task.unique_id
                 # Add space for formatting smaller task numbers
                 if id < 10:
@@ -209,7 +214,27 @@ class Tasks:
 
     def query(self, query_list):
         """This method queries tasks that contain the keyword / keywords of interest"""
+        # Need to execute two for loops to check all tasks and query terms across all tasks
+        # This design could be made more efficient with sorting on query term, however the list command
+        # is more likely to be used than the query command. Thus overall, we optimized sorting in that function over this one.
+        # This is O(N) time complexity but there are likely not many tasks (fewer than 100 given use case and user base), thus
+        # the actual time to run will be inconsequential.
+        queried_task_ids = []
 
+        for task in self.tasks:
+            # ensure task description is all lower case
+            task_name_lower = task.name.lower()
+            for query_term in query_list:
+                # Ensure query term is lower case
+                query_term_lower = query_term.lower()
+
+                if query_term_lower in task_name_lower:
+                    queried_task_ids.append(task.unique_id)
+                    # Break out of second loop (early stopping)
+                    break
+
+        # Call list function with filtered ids to specific query parameters
+        self.list(filter_lst = queried_task_ids)
 
     def max_id(self):
         if len(self.tasks) == 0:
@@ -276,7 +301,7 @@ def main():
     elif args.done:
         task_list.done(args.done)
     elif args.query:
-        print(args.query)
+        task_list.query(args.query)
 
     print("These are all the tasks in the Tasks() object")
     for t in task_list.tasks:
