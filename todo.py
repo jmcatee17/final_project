@@ -26,10 +26,13 @@ class Task:
         self.unique_id = largest_task + 1
         self.created = self.calculate_datetime()
         self.completed = False
+        self.completed_time = None
         if due_date != None:
             self.due_date = self.clean_due_date(due_date)
         else:
             self.due_date = due_date
+        # https://stackoverflow.com/questions/4978738/is-there-a-python-equivalent-of-the-c-sharp-null-coalescing-operator
+        self.due_date_sort = self.due_date or datetime.datetime(datetime.MINYEAR, 1, 1) # first possible python date (least prioritize)
     
     def calculate_datetime(self):
         """This function calculates the current time in Chicago timezone and returns it as a datetime object"""
@@ -76,12 +79,6 @@ class Tasks:
     def __init__(self):
         self.tasks = self.read_pickle_tasks()
 
-    # Task Open
-    
-    # Before exits - resave all tasks to pickle file
-
-    # Most of logic in tasks class
-
     def pickle_tasks(self):
         """Pickle your task list to a file"""
         # Ensure at root home directory
@@ -107,8 +104,8 @@ class Tasks:
             # Return empty list (no tasks)
             return []
 
-    def list(self):
-        """This method prints"""
+    def list(self, filter_lst = False):
+        """This method prints all uncompleted tasks to the console"""
         print('ID   Age  Due Date   Priority   Task')
         print('--   ---  --------   --------   ----')
 
@@ -141,7 +138,42 @@ class Tasks:
                 print(f'{id}   {age}  {due_date} {priority}         {name}')
 
     def report(self):
-        pass
+        """This method prints all tasks (completed and uncompleted) to the console"""
+        print('ID   Age  Due Date   Priority   Task                Created                       Completed')
+        print('--   ---  --------   --------   ----                ---------------------------   -------------------------')
+        # Loop through each task and print to console
+        for task in self.tasks:
+            id = task.unique_id
+            # Add space for formatting smaller task numbers
+            if id < 10:
+                id = str(id) + ' '
+            else:
+                id = str(id)
+            age = task.calculate_age()
+            
+            # Add space for formatting smaller task numbers
+            if age < 10:
+                age = str(age) + 'd '
+            else:
+                age = str(age) + 'd'
+
+            # Source: https://stackoverflow.com/questions/17245612/formatting-time-as-d-m-y
+            if task.due_date == None:
+                due_date = '-        '
+            else:
+                due_date = task.due_date.strftime('%m/%d/%Y')
+            priority = task.priority
+            priority = ' ' + str(priority)
+            name = task.name
+            created = task.created.strftime(f'%a %b  %d %H:%m:%S CST %Y')
+            if task.completed == False:
+                completed_time = '-        '
+            else:
+                completed_time = task.completed.strftime('%a %b  %d %H:%m:%S CST %Y')
+            # Create dynamic number of spaces based on task name such that output is aligned
+            num_spaces = 16 - len(name)
+            spaces = num_spaces * ' '
+            print(f'{id}   {age}  {due_date} {priority}         {name}{spaces}{created}   {completed_time}')
 
     def delete(self, delete_id):
         """This method removes the element from the tasks list with the corresponding id"""
@@ -150,15 +182,35 @@ class Tasks:
             # Remove element if id matches
             if task.unique_id == delete_id:
                 self.tasks.remove(task)
-        # Print metadata to console
-        print(f'Deleted task {delete_id}')
+                # Print metadata to console
+                print(f'Deleted task {delete_id}')
+                # Return out of function when found
+                return
+        # If Unique Id not found
+        print(f'Could not delete. Task {delete_id} not in list.')
 
-    def done(self):
-        pass
+    def done(self, done_id):
+        """This method changes a tasks status from incomplete to done"""
+        # Get datetime first so it is most accurate information - Chicago Time Zone
+        tz = pytz.timezone('America/Chicago')
+        completed_time = datetime.now(tz = tz)
+        # Loop through each task
+        for task in self.tasks:
+            # Remove element if id matches
+            if task.unique_id == done_id:
+                task.completed = True
+                task.completed_time = completed_time
+                # Print metadata to console
+                print(f'Completed task {done_id}')
+                # Return out of function when found
+                return
+        # If Unique Id not found
+        print(f'Could not complete. Task {done_id} not in list.')
 
-    def query(self):
-        pass
-    
+    def query(self, query_list):
+        """This method queries tasks that contain the keyword / keywords of interest"""
+
+
     def max_id(self):
         if len(self.tasks) == 0:
             return 0
@@ -178,10 +230,13 @@ class Tasks:
         # Append task to list
         self.tasks.append(task)
 
+        # Sort Tasks and reassign:
+        # Sorting in the add section ensures that list is always sorted (if assumption is that you start with no list or a sorted list for first --list command)
+        # Source for sorting on key: https://docs.python.org/3/library/functions.html#sorted
+        self.tasks = sorted(self.tasks, key = lambda x: (x.due_date_sort, x.priority))
+
         # Print metadata to console
         print(f'Created task {task.unique_id}')
-
-
 
 def main():
     parser = argparse.ArgumentParser(description = "Update your ToDo list.")
@@ -191,7 +246,8 @@ def main():
     parser.add_argument("--query", type = str, required = False, nargs = "+", help = "query")
     parser.add_argument("--delete", type = int, required = False, help = "deletes task with unique_id from tasks list")
     parser.add_argument("--list", action = 'store_true', required = False, help = "list all tasks that have not been completed")
-    parser.add_argument("--report", help = "list all tasks that have not been completed")
+    parser.add_argument("--report", action = 'store_true', required = False, help = "list all tasks that have not been completed")
+    parser.add_argument("--done", type = int, required = False, help = "marks a task as complete unique_id from tasks list")
 
     # Parse the arguments
     args = parser.parse_args()
@@ -206,23 +262,27 @@ def main():
     task_list = Tasks()
 
     if args.add:
-        task_list.add(args.add, args.priority, args.due)
-
+        # Ensure Task name is less than 16 character
+        if len(args.add) > 16:
+            print('Please enter a task name with less than 16 characters in length.')
+        else:
+            task_list.add(args.add, args.priority, args.due)
     elif args.list:
         task_list.list()
-
+    elif args.report:
+        task_list.report()
     elif args.delete:
         task_list.delete(args.delete)
-    # elif args.report:
-    #     print("Print out Report")
+    elif args.done:
+        task_list.done(args.done)
+    elif args.query:
+        print(args.query)
 
     print("These are all the tasks in the Tasks() object")
     for t in task_list.tasks:
         print(t)
 
-        ## Do something with data based on the user command
-
-        task_list.pickle_tasks()
+    task_list.pickle_tasks()
 
 if __name__ == "__main__":
     main()
