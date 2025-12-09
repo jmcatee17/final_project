@@ -1,6 +1,8 @@
+#!/usr/bin/env python
+
 import argparse
 import pickle
-from datetime import datetime
+from datetime import datetime, MAXYEAR
 import pytz
 import os
 from pathlib import Path
@@ -32,7 +34,7 @@ class Task:
         else:
             self.due_date = due_date
         # https://stackoverflow.com/questions/4978738/is-there-a-python-equivalent-of-the-c-sharp-null-coalescing-operator
-        self.due_date_sort = self.due_date or datetime.datetime(datetime.MINYEAR, 1, 1) # first possible python date (least prioritize)
+        self.due_date_sort = self.due_date or datetime(MAXYEAR, 12, 31) # last possible python date (least prioritized)
     
     def calculate_datetime(self):
         """This function calculates the current time in Chicago timezone and returns it as a datetime object"""
@@ -77,6 +79,7 @@ class Tasks:
     
     """
     def __init__(self):
+        """Read pickled tasks file into a list"""
         self.tasks = self.read_pickle_tasks()
 
     def pickle_tasks(self):
@@ -134,7 +137,7 @@ class Tasks:
 
                 # Source: https://stackoverflow.com/questions/17245612/formatting-time-as-d-m-y
                 if task.due_date == None:
-                    due_date = '-        '
+                    due_date = '-         '
                 else:
                     due_date = task.due_date.strftime('%m/%d/%Y')
                 priority = task.priority
@@ -164,7 +167,7 @@ class Tasks:
 
             # Source: https://stackoverflow.com/questions/17245612/formatting-time-as-d-m-y
             if task.due_date == None:
-                due_date = '-        '
+                due_date = '-         '
             else:
                 due_date = task.due_date.strftime('%m/%d/%Y')
             priority = task.priority
@@ -172,11 +175,11 @@ class Tasks:
             name = task.name
             created = task.created.strftime(f'%a %b  %d %H:%m:%S CST %Y')
             if task.completed == False:
-                completed_time = '-        '
+                completed_time = '-         '
             else:
-                completed_time = task.completed.strftime('%a %b  %d %H:%m:%S CST %Y')
+                completed_time = task.completed_time.strftime('%a %b  %d %H:%m:%S CST %Y')
             # Create dynamic number of spaces based on task name such that output is aligned
-            num_spaces = 16 - len(name)
+            num_spaces = 20 - len(name)
             spaces = num_spaces * ' '
             print(f'{id}   {age}  {due_date} {priority}         {name}{spaces}{created}   {completed_time}')
 
@@ -264,6 +267,7 @@ class Tasks:
         print(f'Created task {task.unique_id}')
 
 def main():
+    # Create Command Line parser and arguments
     parser = argparse.ArgumentParser(description = "Update your ToDo list.")
     parser.add_argument("--add", type = str, required = False, help = "a task string to add to your list")
     parser.add_argument("--due", type = str, required = False, help = "due date in dd/MM/YYYY format")
@@ -277,19 +281,13 @@ def main():
     # Parse the arguments
     args = parser.parse_args()
 
-    # Read out arguments (note the types)
-    print("Add:", args.add)
-    print("Due:", args.due)
-    print("Priority:", args.priority)
-    print("List:", args.list)
-    print("Query:", args.query)
-
+    # Create tasks objeect
     task_list = Tasks()
 
     if args.add:
-        # Ensure Task name is less than 16 character
-        if len(args.add) > 16:
-            print('Please enter a task name with less than 16 characters in length.')
+        # Ensure Task name is less than 20 character
+        if len(args.add) > 20:
+            print('Please enter a task name with less than 21 characters in length.')
         else:
             task_list.add(args.add, args.priority, args.due)
     elif args.list:
@@ -303,10 +301,11 @@ def main():
     elif args.query:
         task_list.query(args.query)
 
-    print("These are all the tasks in the Tasks() object")
-    for t in task_list.tasks:
-        print(t)
+    # print("These are all the tasks in the Tasks() object")
+    # for t in task_list.tasks:
+    #     print(t)
 
+    # Pickle updated lists and write to file
     task_list.pickle_tasks()
 
 if __name__ == "__main__":
