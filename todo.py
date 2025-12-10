@@ -298,9 +298,18 @@ class Tasks:
     def add(self, name, priority, due):
         # Since we do not 
         largest_task = self.max_id()
-
+        try:
+            # If this does not fail, then invalid name for task
+            int(name)
+            print('There was an error in creating your task due to its name. Run "todo -h" for usage instructions.')
+            return
+        except:
+            # If this fails (good!) continue with program
+            pass
         # Ensure Correct Formatting for due date - can either be a day of week or datetime:
-        if due.lower() in ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]:
+        if due == None:
+            pass
+        elif due.lower() in ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]:
             pass
         else:
             try:
