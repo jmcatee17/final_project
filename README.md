@@ -8,12 +8,13 @@
      - Add this to top of file so it can be executed from anywhere
      - ```#!/usr/bin/env python```
 
-- **Step 3:** Move file to a location in $PATH
+- **Step 3:** Change Permissions and Move file to a location in $PATH
      - If we run the linux command ```echo $Path```, we see all the locations where the computer looks to find an executable file.
-     - We see `/opt/anaconda3/bin` is one of the paths, while is where we stored the pickle file.
-     - We will add this script here.
-
-- **Step 4:** Change permissions of the file so any program can run it:
-     - If we run the linux command ```echo $Path```, we see all the locations where the computer looks to find an executable file.
+     - We see `/usr/local/bin` is one of the paths, while is where we stored the pickle file.
+     - We will add this script here. We will need to use the command `sudo chmod a+rx todo.py` to change the permissions, and write in our password
+     - Then we can move the command using super user `sudo cp todo.py /usr/local/bin/`
+     - Source: https://askubuntu.com/questions/877992/how-to-put-executable-to-usr-local-bin
      - Source: https://www.geeksforgeeks.org/linux-unix/chmod-command-linux/
 
+- **Step 4:**
+     - Now the program can be executed from any directory on the computer!
