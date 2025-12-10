@@ -1,12 +1,42 @@
 #!/usr/bin/env python
 
+
+"""This file contains code to create and run a task manager entirely from a bash or z shell.
+
+Note: this file is long! I did evalute using different files for each class and using import statements, 
+however since this file can be moved across different locations (i.e. so it can be run from anywhere on the computer)
+, it made sense to leave all the code within one file for ease of portability."""
+
+__author__    = "Jackson McAtee"
+__email__     = "jdmcatee@uchicago.edu"
+
 import argparse
 import pickle
-from datetime import datetime, MAXYEAR
+from datetime import datetime, timedelta, MAXYEAR
 import pytz
 import os
 from pathlib import Path
 import math
+
+class reversor:
+    """This class takes in an object and reversese the less than logic of it.
+    It is used to reverse the order of a list
+    
+    Attributes:
+            obj: list object input """
+    # Source: https://stackoverflow.com/questions/37693373/how-to-sort-a-list-with-two-keys-but-one-in-reverse-order
+    def __init__(self, obj):
+        self.obj = obj
+
+    def __eq__(self, other):
+        """This methods defines the default behavior of equality across objects."""
+        return other.obj == self.obj
+
+    def __lt__(self, other):
+        """This methods defines the default behavior of less than operator across objects.
+        Return true if the OTHER object is less than this object. This is used because the 
+        sorted() function operates based on __lt__()"""
+        return other.obj < self.obj
 
 class Task:
     """Representation of a task
@@ -17,7 +47,8 @@ class Task:
               - name - string
               - unique id - number
               - priority - int value of 1, 2, or 3; 1 is default
-              - due date - date, this is optional
+              - due_date - optional date_time with None's possible
+              - due_date_sort - this is the value that the .sorted() function uses since due_date contains None's (datetime)
     
     """
     def __init__(self, name, largest_task, priority, due_date):
@@ -57,9 +88,25 @@ class Task:
     
     def clean_due_date(self, due_date):
         """This function takes in user input due date in and converts to datetime object"""
+        # Convert if due_date is day of week
+        if due_date.lower() in ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]:
+            # Create day of week dictionary (next 6 days including current day) using dictionary comprehension
+            day_lookup = {}
+            for future_day in range(7):
+                day = datetime.now() + timedelta(future_day)
+                
+                # Get keys (day of week) and value (datetime)
+                day_of_week = day.strftime("%A").lower()
+
+                # Append to dictionary
+                day_lookup[day_of_week] = day
+            
+            # Reassign due date from day of week to datetime
+            date_obj = day_lookup[due_date.lower()]
+            return date_obj
+
         #Source: https://docs.python.org/3/library/datetime.html
-        date_str = due_date
-        date_obj = datetime.strptime(date_str, "%m/%d/%Y")
+        date_obj = datetime.strptime(due_date, "%m/%d/%Y")
         return date_obj
 
     def __str__(self):
@@ -70,36 +117,35 @@ class Tasks:
     """Representation of a series of tasks
 
       Attributes:
-              - created - date
-              - completed - date
-              - name - string
-              - unique id - number
-              - priority - int value of 1, 2, or 3; 1 is default
-              - due date - date, this is optional
+              - directory: home directory when user wants to run the program.
+              - pickle_file_name: defaulted to .pickle, but can be changed in necessary
+              - tasks: list of tasks (empty if no tasks exist yet)
     
     """
-    def __init__(self):
+    def __init__(self, directory):
         """Read pickled tasks file into a list"""
+        self.directory = directory
+        self.pickle_file_name = '.pickle' # Ensure .pickle file so user cannot access easily
         self.tasks = self.read_pickle_tasks()
 
     def pickle_tasks(self):
         """Pickle your task list to a file"""
         # Ensure at root home directory
-        os.chdir('/Users/jacksonmcatee')
-        with open('todo.pickle', 'wb') as f:
+        os.chdir(self.directory)
+        with open(self.pickle_file_name, 'wb') as f:
             pickle.dump(self.tasks, f)
 
     def read_pickle_tasks(self):
         """Read pickled tasks if they exist"""
         # Ensure at root home directory
-        os.chdir('/Users/jacksonmcatee')
+        os.chdir(self.directory)
 
         # Check if File exists:
         # Source: https://stackoverflow.com/questions/82831/how-do-i-check-whether-a-file-exists-without-exceptions
-        my_file = Path('/Users/jacksonmcatee/todo.pickle')
+        my_file = Path(f'{self.directory}/{self.pickle_file_name}')
         if my_file.is_file():
             # file exists
-            with open('todo.pickle', 'rb') as f:
+            with open(self.pickle_file_name, 'rb') as f:
                 tasks = pickle.load(f)
             # Return List of Pickled tasks
             return tasks
@@ -147,8 +193,8 @@ class Tasks:
 
     def report(self):
         """This method prints all tasks (completed and uncompleted) to the console"""
-        print('ID   Age  Due Date   Priority   Task                Created                       Completed')
-        print('--   ---  --------   --------   ----                ---------------------------   -------------------------')
+        print('ID   Age  Due Date   Priority   Task                Created                         Completed')
+        print('--   ---  --------   --------   ----                ---------------------------     -------------------------')
         # Loop through each task and print to console
         for task in self.tasks:
             id = task.unique_id
@@ -252,6 +298,17 @@ class Tasks:
     def add(self, name, priority, due):
         # Since we do not 
         largest_task = self.max_id()
+
+        # Ensure Correct Formatting for due date - can either be a day of week or datetime:
+        if due.lower() in ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]:
+            pass
+        else:
+            try:
+                datetime.strptime(due, "%m/%d/%Y")
+            except: 
+                print("Invalid Due Date. Ensure due date is a real date in mm/dd/yyy format or a day of week (e.g friday)")
+                # Exit loop before creating object
+                return
         # Create task with specified input parameters (defaulted to None when optional)
         task = Task(name, largest_task, priority, due)
         
@@ -261,7 +318,9 @@ class Tasks:
         # Sort Tasks and reassign:
         # Sorting in the add section ensures that list is always sorted (if assumption is that you start with no list or a sorted list for first --list command)
         # Source for sorting on key: https://docs.python.org/3/library/functions.html#sorted
-        self.tasks = sorted(self.tasks, key = lambda x: (x.due_date_sort, x.priority))
+        # Source for Reversor: https://stackoverflow.com/questions/37693373/how-to-sort-a-list-with-two-keys-but-one-in-reverse-order
+        # Here we order first by due date (the earliest ones first for prioritization), then by priority (highest priority first i.e. 3, 2, 1)
+        self.tasks = sorted(self.tasks, key = lambda x: (x.due_date_sort, reversor(x.priority)))
 
         # Print metadata to console
         print(f'Created task {task.unique_id}')
@@ -281,8 +340,8 @@ def main():
     # Parse the arguments
     args = parser.parse_args()
 
-    # Create tasks objeect
-    task_list = Tasks()
+    # Create tasks objeect - Change Home Directory as necessary for user
+    task_list = Tasks(directory = '/Users/jacksonmcatee')
 
     if args.add:
         # Ensure Task name is less than 20 character
